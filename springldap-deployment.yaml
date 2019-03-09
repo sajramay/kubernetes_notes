@@ -1,0 +1,16 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: springldap
+spec:
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: springldap
+    spec:
+      containers:
+      - name: springldap
+        image: localhost:5000/dev/ramays/springldap
+        ports:
+        - containerPort: 9090

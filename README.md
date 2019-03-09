@@ -526,3 +526,111 @@ kubectl create secret generic spring-ldap-secret --from-literal=database-passwor
           name: spring-ldap-secret
           key: database-password
 ```
+
+# Updating Your Application
+
+## Using Rolling Updates
+
+This method is no longer recommended but is described here for completeness.  In order to update a Replica Set from image v1 to image v2, you can use the `kubectl rolling-update` command.  Let's say that you have an application with a Service (not shown) whose pods are created with the following ReplicaSet.
+
+```yaml
+apiVersion: apps/v1beta2
+kind: ReplicaSet
+metadata:
+  name: springldap-v1
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: springldap
+  template:
+    metadata:
+      labels:
+        app: springldap
+    spec:
+      containers:
+      - name: springldap
+        image: localhost:5000/dev/ramays/springldap:v1
+```
+
+If you want to update the image from v1 to v2 then run the following command.
+
+```sh
+$ kubectl rolling-update springldap-v1 springldap-v2 --image=localhost:5000/dev/ramays/springldap:v2
+```
+
+This command will create a new ReplicaSet that is a copy of the original ReplicaSet with the image updated. The command will then scale down the pods of the original ReplicaSet and scale up the pods of the new ReplicaSet until just the new ReplicaSet pods remain.
+
+This approach is not recommended because it relies on the client to co-ordinate the change and not the server, and because it involves changing an existing ReplicaSet rather then creating and deploying a new one.
+
+## Using Deployments
+
+A Deployment is a high level resource compared to ReplicaSets and Pods which are considered to be lower level resources.  When you create a Deployment, a ReplicaSet is created which will create the Pods.  So Deployments indirectly create Pods.
+
+```yaml
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: springldap
+spec:
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: springldap
+    spec:
+      containers:
+      - name: springldap
+        image: localhost:5000/dev/ramays/springldap
+        ports:
+        - containerPort: 9090
+```
+```sh
+$ kubectl create -f springldap-deployment.yaml
+```
+```sh
+$ kubectl get po,rs,deployment
+NAME                              READY   STATUS    RESTARTS   AGE
+pod/springldap-66886d747c-555xr   1/1     Running   0          5m16s
+pod/springldap-66886d747c-bjcpv   1/1     Running   0          5m16s
+pod/springldap-66886d747c-l2grh   1/1     Running   0          5m16s
+
+NAME                                          DESIRED   CURRENT   READY   AGE
+replicaset.extensions/springldap-66886d747c   3         3         3       5m16s
+
+NAME                               READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.extensions/springldap   3/3     3            3           5m16s
+```
+```sh
+$ kubectl rollout status deployment.extensions/springldap
+deployment "springldap" successfully rolled out
+```
+Note that the deployment will not create a `Service`. You can create the `Service` using the sample above and it will connect to the `Pods` created by the `Deployment` by the label selector.
+
+To trigger an update simply update the image in the deployment
+```sh
+$ kubectl set image deployment springldap springldap=localhost:5000/dev/ramays/springldap:v2
+```
+Note that the old ReplicaSet is stil there.
+```sh
+$ kubectl get po,rs,svc,deployment
+NAME                              READY   STATUS    RESTARTS   AGE
+pod/springldap-79587c76d7-hvlqk   1/1     Running   0          31s
+pod/springldap-79587c76d7-lr5f4   1/1     Running   0          29s
+pod/springldap-79587c76d7-tqgxv   1/1     Running   0          26s
+
+NAME                                          DESIRED   CURRENT   READY   AGE
+replicaset.extensions/springldap-66886d747c   0         0         0       20m <-- OLD
+replicaset.extensions/springldap-79587c76d7   3         3         3       31s <-- NEW
+
+NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+service/kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   22m
+
+NAME                               READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.extensions/springldap   3/3     3            3           20m
+
+```
+If there is an error with the new application, the rollout can be undone just as easily
+```sh
+$ kubectl rollout undo deployment springldap
+```

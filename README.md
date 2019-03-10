@@ -310,7 +310,7 @@ NAME                 TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)   AGE
 service/kubernetes   ClusterIP   10.96.0.1        <none>        443/TCP   37s
 service/springldap   ClusterIP   10.107.146.119   <none>        80/TCP    3s
 ```
-Note that only the service is createed and no backing pods so curl at the service address does not do anything
+Note that only the service is created and no backing pods so curl at the service address does not do anything
 ```sh
 $ curl 10.107.146.119
 curl: (7) Failed to connect to 10.107.146.119 port 80: Connection refused
@@ -363,29 +363,30 @@ $ curl 10.101.78.142  (does not work externally)
 
 Get the environment for a particular Pod which will show the host and port that exposes this Pod through a Service.
 ```sh
-$ kubectl get services
-NAME         TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)   AGE
-kubernetes   ClusterIP   10.96.0.1        <none>        443/TCP   5d16h
-springldap   ClusterIP   10.106.116.230   <none>        80/TCP    5d16h
+$ kubectl get po
+NAME                   READY   STATUS    RESTARTS   AGE
+pod/springldap-nz8hx   1/1     Running   0          9s
+pod/springldap-s2xjz   1/1     Running   0          9s
+pod/springldap-t5r4d   1/1     Running   0          9s
 
-$ kubectl exec springldap-xxx env
+$ kubectl exec springldap-nz8hx env
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/jdk/bin
 HOSTNAME=springldap-rkbfp
 SPRINGLDAP_PORT_80_TCP_PORT=80                        
 SPRINGLDAP_SERVICE_HOST=10.106.116.230                 <----
+SPRINGLDAP_SERVICE_PORT=80                             <----
 SPRINGLDAP_PORT_80_TCP=tcp://10.106.116.230:80
 SPRINGLDAP_PORT_80_TCP_ADDR=10.106.116.230
 KUBERNETES_SERVICE_HOST=10.96.0.1                      <----
+KUBERNETES_SERVICE_PORT=443                            <----
 KUBERNETES_PORT_443_TCP_ADDR=10.96.0.1
 KUBERNETES_PORT=tcp://10.96.0.1:443
 KUBERNETES_PORT_443_TCP=tcp://10.96.0.1:443
 KUBERNETES_PORT_443_TCP_PROTO=tcp
-KUBERNETES_SERVICE_PORT=443                            <----
 KUBERNETES_SERVICE_PORT_HTTPS=443
 SPRINGLDAP_PORT=tcp://10.106.116.230:80
 SPRINGLDAP_PORT_80_TCP_PROTO=tcp
 KUBERNETES_PORT_443_TCP_PORT=443
-SPRINGLDAP_SERVICE_PORT=80                             <----
 JAVA_VERSION_MAJOR=8
 JAVA_VERSION_MINOR=192
 JAVA_VERSION_BUILD=12
@@ -397,7 +398,7 @@ GLIBC_VERSION=2.28-r0
 LANG=C.UTF-8
 HOME=/root
 ```
-Note that all services are available through environment variables. So if a mydatabase service is created, for example, that wil be available through `MYDATABASE_SERVICE_HOST` and `MYDATABASE_SERVICE_PORT`
+Note that all services are available through environment variables. So if a mydatabase service is created, for example, that will be available through `MYDATABASE_SERVICE_HOST` and `MYDATABASE_SERVICE_PORT`
 
 You cannot ping a Service IP because it is a virtual IP address and has no meaning without the port
 ```sh
@@ -429,7 +430,7 @@ spec:
   ports:
   - port: 80
     targetPort: 9090
-    nodePort: 19090
+    nodePort: 30090
   selector:
     app: springldap
 ```

@@ -568,6 +568,8 @@ This approach is not recommended because it relies on the client to co-ordinate 
 
 A Deployment is a high level resource compared to ReplicaSets and Pods which are considered to be lower level resources.  When you create a Deployment, a ReplicaSet is created which will create the Pods.  So Deployments indirectly create Pods.
 
+Official Kubernetes documentation recommends the use of Deployments over ReplicaSets directly.
+
 ```yaml
 apiVersion: apps/v1beta1
 kind: Deployment

@@ -106,9 +106,9 @@ Check Services - Pods
 $ kubectl get pods
 ```
 
-Check Services - Replication Controllers
+Check Services - ReplicaSets
 ```sh
-$ kubectl get rc
+$ kubectl get rs
 ```
 
 Check Services
@@ -159,16 +159,17 @@ spec:
 $ kubectl create -f springldap-manual.yaml
 ```
 
-Create a Replication Controller (which will automatically create the pods)
+Create a `ReplicaSet`, which will automatically create the pods. Note that `ReplicationControllers` are deprecated.
 ```YAML
-apiVersion: v1
-kind: ReplicationController
+apiVersion: apps/v1
+kind: ReplicaSet
 metadata:
   name: springldap
 spec:
   replicas: 3
   selector:
-    app: springldap
+    matchLabels:
+      app: springldap
   template:
     metadata:
       labels:
@@ -182,15 +183,15 @@ spec:
 ```
 
 ```sh
-$ kubectl create -f springldap-rc.yaml
-$ kubectl get pods,rc,services
+$ kubectl create -f springldap-rs.yaml
+$ kubectl get pods,rs,services
 NAME                   READY   STATUS    RESTARTS   AGE
 pod/springldap-l9vkj   1/1     Running   0          54s
 pod/springldap-l9xsh   1/1     Running   0          54s
 pod/springldap-vcsl4   1/1     Running   0          54s
 
 NAME                               DESIRED   CURRENT   READY   AGE
-replicationcontroller/springldap   3         3         3       54s
+replicaset.apps/springldap         3         3         3       54s
 
 NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
 service/kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   7m29s
@@ -198,18 +199,18 @@ service/kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   7m29s
 
 # Using LoadBalancers and NodePorts
 
-Clean up and recreate the pods using a Replication Controller
+Clean up and recreate the pods using a `ReplicaSet`
 ```sh
 $ kubectl delete all --all
-$ kubectl create -f springldap-rc.yaml
+$ kubectl create -f springldap-rs.yaml
 ```
 
-Expose Spring Boot Pods Through a Load-Balancer (not supported in Minikube v0.30.0)
+Expose Spring Boot Pods through a Load-Balancer (not supported in Minikube v0.30.0)
 ```sh
 $ kubectl expose rc springldap --type=LoadBalancer --name springldap-http
 ```
 
-Expose Spring Boot Pods Through a NodePort
+Expose Spring Boot Pods Through a `NodePort`
 ```sh
 $ kubectl expose rc springldap --name springldap-nodeport
 ```
@@ -223,9 +224,19 @@ springldap-nodeport   ClusterIP   10.109.11.173   <none>        9090/TCP   6s
 $ curl 10.109.11.173:9090
 ```
 
+Edit and update YAML
+```sh
+$ kubectl replace -f springldap-rs.yaml
+```
+
 Scale Up
 ```sh
-$ kubectl scale rc springldap --replicas=3
+$ kubectl scale --replicas=6 -f springldap-rs.yaml
+```
+
+Scale Up
+```sh
+$ kubectl scale --replicas=6 replicaset springldap 
 ```
 
 Delete a Single Pod (A new one will be started by the RC)
@@ -240,12 +251,12 @@ $ kubectl get pods -L app -o wide
 
 Edit RC YAML and Apply Changes
 ```sh
-$ kubectl edit rc springldap
+$ kubectl edit rs springldap
 ```
 
 Delete RC but Keep the Pods Runnning
 ```sh
-$ kubectl delete rc springldap --cascade=false
+$ kubectl delete rs springldap --cascade=false
 ```
 
 ## Create ReplicaSet
@@ -280,7 +291,7 @@ pod/springldap-n5r6p   1/1     Running   0          10s
 pod/springldap-zspzn   1/1     Running   0          10s
 
 NAME                               DESIRED   CURRENT   READY   AGE
-replicaset.extensions/springldap   3         3         3       10s
+replicaset.apps/springldap         3         3         3       10s
 
 NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
 service/kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   23s
@@ -571,7 +582,7 @@ A Deployment is a high level resource compared to ReplicaSets and Pods which are
 Official Kubernetes documentation recommends the use of Deployments over ReplicaSets directly.
 
 ```yaml
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: springldap

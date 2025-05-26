@@ -1,14 +1,22 @@
 # Rocking Kubernetes with Amazon EKS, Fargate, And DevOps : Notes
 
-Hand Notes from Udemy Course : https://lseg.udemy.com/course/rocking-kubernetes-with-amazon-eks-fargate-and-devops
+Hand Notes from Udemy Course: https://lseg.udemy.com/course/rocking-kubernetes-with-amazon-eks-fargate-and-devops
 
 ## Kubernetes Basics
 
+CNCF states that 51% of all Kubernetes deployments are run on AWS EKS
+
 - Control Plane (k8s master) contains
   - etcd
-  - scheduler
-  - controller manager
-  - API server
+    - This is a consistent and highly available key-value store that serves as Kubernetes' backing store for all cluster data.
+  - kube-scheduler (Scheduler)
+    - This component watches for newly created Pods that have no assigned Node and selects a Node for them to run on.
+  - kube controller manager (Controller Manager)
+    - This component runs various controller processes that continuously monitor the shared state of the cluster (via the API server) and make changes to move the current state towards the desired state
+  - kube-apiserver (API Server)
+    - This is the frontend of the Kubernetes control plane. It exposes the Kubernetes API, which is how all other control plane components, worker nodes (kubelet), and external users (via kubectl) communicate with the cluster.
+  - cloud-controller-manager (Optional, for cloud environments)
+    - This component integrates Kubernetes with the underlying cloud provider's API. It allows you to link your cluster into your cloud provider's infrastructure
 
 - Worker Nodes
   - has container runtimes engines such as
@@ -34,7 +42,7 @@ Hand Notes from Udemy Course : https://lseg.udemy.com/course/rocking-kubernetes-
   - run inside nodes
   - have a defined IP address for each pod which is different from the Node IP address
   - containers within the same Pod share the same network namespace and IP address, and can communicate with each other via localhost
-  - pod IPs are generally not accessible from outside the k8s cluster.  Instead Services are used to expose groups of Pods to clients
+  - pod IPs are generally not accessible from outside the k8s cluster.  Instead, Services are used to expose groups of Pods to clients
 
 - Replica Sets
   - ReplicaSets ensure that a specified number of identical Pods are running at all times. 
@@ -105,6 +113,7 @@ Hand Notes from Udemy Course : https://lseg.udemy.com/course/rocking-kubernetes-
     - LoadBalancer (which maps to an ALB when running on AWS)
       - accessible from outside the cluster
       - maps to cloud provider 
+      - when deployed through EKS, the associated Security Group is created and attached automatically
     - ClusterIP
       - Default type of Service, if you do not mention `kind`
       - only accessible from inside the cluster
@@ -115,6 +124,7 @@ Hand Notes from Udemy Course : https://lseg.udemy.com/course/rocking-kubernetes-
       - for the client, the URL includes the IP of the Node but actually traffic is distributed to all matching Nodes based on `selector`
       - accessible from outside the cluster
       - uses a ClusterIP under the hood
+      - for AWS, the Security Group will need to be manually created and attached
     
   - LoadBalancer YAML
   ```yaml
@@ -165,3 +175,103 @@ Hand Notes from Udemy Course : https://lseg.udemy.com/course/rocking-kubernetes-
         environment: test
   ```
   
+# EKS Control Plane
+  - aws managed
+  - aws scales the control plane
+  - aws replaces unhealthy control plane instances
+  - aws maintains etcd
+  - automated upgrades
+  - integrated with aws ecosystem
+  - flat charge of $0.10 per hour which is $72 per month
+
+# EKS Data Plane
+  - Self Managed Node Groups
+    - you maintain worker ec2 machines
+    - can use custom AMI
+  - Managed Node Groups
+    - aws manages worker ec2 instances
+    - no custom AMIs
+    - Note limits on number of pods depending on ec2 type and thus ENI support 
+      - https://github.com/aws/amazon-vpc-cni-k8s/blob/master/misc/eni-max-pods.txt
+      - https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-eni.html#AvailableIpPerENI
+  - AWS Fargate
+    - no worker ec2 nodes at all
+    - serverless container runtime nodes
+  
+#  eksctl
+  - CLI Tool for creating EKS clusters
+    - create, list and delete clusters
+    - create, drain and delete nodegroups
+    - update a cluster
+    - use custom AMIs
+    - configure VPC networking
+    - manage iam policies
+    - only works on AWS EKS
+    - plus others
+  - Abstracts many things like VPC,Subnets,SGs etc using CloudFormation
+  - `eksctl create cluster`
+    - creates a cluster with one nodegroup containing 2 m5.large nodes
+  - `eksctl create cluster --name <name> --version 1.15 --node-type t3.micro --nodes 2`
+    - creates a cluster with k8s version 1.15 and with 2 t3.micro nodes
+  - `eksctl create cluster --name <name> --version 1.15 --nodegroup-name <nodegrpname> --node-type t3.micro --nodes 2 --managed`
+    - creates a cluster with k8s version 1.15 and an aws managed node group
+  - `eksctl create cluster --name <name> --fargate`
+    - creates a cluster with aws fargate
+  - `eksctl create nodegroup --config-file=eksctl-create-ng.yaml`
+    - can create both nodegroups below from a YAML config file
+    ```yaml
+    ---
+    apiVersoin: eksctl.io/v1alpha5
+    kind: ClusterConfig
+    
+    metadata:
+      name: eksctl-test
+      region: eu-west-2
+    
+    nodeGroups:
+      - name: ng1-public
+        instanceType: t3.micro
+        desiredCapacity: 2
+    
+    managedNodeGroups:
+      - name: ng2-managed
+        instanceType: t3.micro
+        minSize: 1
+        maxSize: 3
+        desiredCapacity: 2
+    ```
+  - `eksctl delete cluster --name <cluster name>`
+
+# kubectl
+  - communicates with cluster using the API Server on the Control Plane
+  - works on any cluster, not just AWS EKS k8s clusters
+  - kubectl command syntax
+    - `kubectl <command> <type> <name> <flags>`
+    - command
+      - create
+      - get
+      - describe
+      - delete
+      - apply
+      - attach
+      - autoscale
+    - type (any k8s resource type)
+      - pod
+      - namespace
+      - deployment
+      - replicaset
+      - service
+      - plus others
+    - name (optional name of the resource)
+    - flags
+      - `--filename` or `-f`
+      - `--output` or `-o`
+  - `kubectl get pod`
+  - `kubectl get pod <podname>`
+  - `kubectl get pod <podname> -o yaml`
+  - `kubectl get ns`
+    - get namespaces - this will include default namespace and system namespace
+  - `kubectl get pods -n kube-system`
+    - get default pods in namespace kube-system
+
+

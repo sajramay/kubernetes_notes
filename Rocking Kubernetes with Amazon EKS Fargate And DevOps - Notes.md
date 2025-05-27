@@ -194,6 +194,9 @@ CNCF states that 51% of all Kubernetes deployments are run on AWS EKS
     - Note limits on number of pods depending on ec2 type and thus ENI support 
       - https://github.com/aws/amazon-vpc-cni-k8s/blob/master/misc/eni-max-pods.txt
       - https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-eni.html#AvailableIpPerENI
+      - larger instance types can have more ENIs attached to them
+        - each ec2 instance always has at least one primary ENI
+      - there is a per ENI limit of IP addresses depending on the instance type, meaning some ENIs can have more IPs than others
   - AWS Fargate
     - no worker ec2 nodes at all
     - serverless container runtime nodes
@@ -338,3 +341,56 @@ Charts are defined as instructions for navigators, so Helm instructions are call
       version: 3.2.1
       repository: https://another.example.com/charts
   ```
+
+# Scaling
+
+## HPA Horizontal Pod Autoscaler
+
+For a given Deployment targeting an m5.large (2vCPU and 8GB)
+
+  ```yaml
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: php-apache
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          environment: php-apache
+      template:
+        metadata:
+          labels:
+            environment: php-apache
+        spec:
+          containers:
+          - name: php-apache
+            image: k8s.gcr.io/hpa-example
+            ports:
+            - containerPort: 80
+            resources:
+              requests:
+                cpu: 500m    # same as 0.5 vCPU
+                memory: 256Mi
+              limits:
+                cpu: 1000m   # same as 1.0 vCPU
+                memory: 512Mi
+  ```
+and a HPA manifest
+  ```yaml
+    apiVersion: autoscaling/v1
+    kind: HorizontalPodAutoscaler
+    metadata:
+      name: php-apache
+      namespace: default
+    spec:
+      scaleTargetRef:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: php-apache
+      minReplicas: 1
+      maxReplicas: 10
+      targetCPUUtilizationPercentage: 50
+  ```
+  - a new Pod will be created if a Pod CPU is > 50% of request CPU (ie > 250m)
+  - HPA will increase or decrease the replica count in the deployment when it acts 

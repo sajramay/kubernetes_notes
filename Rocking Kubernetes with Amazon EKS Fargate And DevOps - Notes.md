@@ -394,3 +394,22 @@ and a HPA manifest
   ```
   - a new Pod will be created if a Pod CPU is > 50% of request CPU (ie > 250m)
   - HPA will increase or decrease the replica count in the deployment when it acts 
+  - HPA works on actual CPU utilisation in Pods
+  - HPA scales pods in a node
+  - Metrics Server is needed for viewing metrics on the scaling
+    - `kubectl get deployment metrics-server -n kube-system`
+    - `kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.3.6/components.yaml`
+
+## Cluster Auto Scaler
+
+  - Cluster AutoScaler scales nodes in a cluster
+  - it is not dependent on CPU usage, but instead based on requested CPUs
+  - the actual mechanism depends on the Cloud Provider, but will be ASGs in AWS
+  - there are two components
+    - the open source cluster Autoscaler
+    - the EKS implementation with ASG and IAM etc
+
+## Vertical Pod Autoscaler
+
+  - do not use in production because it discards pods
+  - it should not be used with HPA

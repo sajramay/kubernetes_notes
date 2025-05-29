@@ -412,4 +412,13 @@ and a HPA manifest
 ## Vertical Pod Autoscaler
 
   - do not use in production because it discards pods
-  - it should not be used with HPA
+  - it should not be used with HPA 
+
+## Karpenter
+
+  - will automatically provision nodes of just the right size needed to host the requested pods
+  - this is more efficient than provisioning multiple nodes of the same type that might just host a single pod
+  - it is also faster than the Cluster Autoscaler
+  - Karpenter can also provision nodes based on deployment requirements, such as GPUs, in the same node group
+    - otherwise the admin would need to create a new node group which specified GPU capability
+  - Karpenter needs to be installed with Helm charts and configured

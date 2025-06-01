@@ -43,6 +43,7 @@ CNCF states that 51% of all Kubernetes deployments are run on AWS EKS
   - have a defined IP address for each pod which is different from the Node IP address
   - containers within the same Pod share the same network namespace and IP address, and can communicate with each other via localhost
   - pod IPs are generally not accessible from outside the k8s cluster.  Instead, Services are used to expose groups of Pods to clients
+  - Note that pods deployed to nodes in a private subnet will need a NAT in a public subnet to be able to access the internet to download from Docker Hub
 
 - Replica Sets
   - ReplicaSets ensure that a specified number of identical Pods are running at all times. 
@@ -422,3 +423,79 @@ and a HPA manifest
   - Karpenter can also provision nodes based on deployment requirements, such as GPUs, in the same node group
     - otherwise the admin would need to create a new node group which specified GPU capability
   - Karpenter needs to be installed with Helm charts and configured
+
+# EKS Auto Mode
+
+## DaemonSet
+
+  - in k8s, a DaemonSet is a workload controller that ensures a copy of a Pod runs on all (or some specific) Nodes in a cluster 
+    - it is a way to deploy background services that need to be present on every node
+  - when a new node joins the cluster, the DaemonSet controller automatically deploys a copy of the specified Pod to that node. When a node is removed, the Pod is also automatically removed.
+  - common use cases for DaemonSets include
+    - Log collection agents: Tools like Fluentd or Logstash that collect logs from each node.
+    - Monitoring agents: Software like Prometheus node exporter or Datadog agent that collect metrics from each node.
+    - Cluster storage daemons: Components that need to run on every node to provide storage capabilities.
+    - Networking proxies/helpers: Services like kube-proxy or CNI plugins that enable network functionality on each node.
+  - a DaemonSet is not a pod but it does result in pods being deployed to nodes
+    - the DeamonSet itself is a k8s object (controller)
+  - the DaemonSet is defined in yaml and targets nodes
+  ```yaml
+  apiVersion: apps/v1
+  kind: DaemonSet 
+  ```
+
+  
+## EKS Auto Mode
+
+  - without EKS AutoMode you need to create node groups with eks addons that are compatible with the version of EKS that you're running
+    - these are apart from your normal node groups
+  - with EKS AutoMode, aws will manage the core addons in the control plane
+  - aws also manages the worker nodes, calling them managed instances
+    - you no longer need a separate node group for the addons
+      - `kubctl get nodes` will not show any nodes unless a service is deployed
+    - the addons run as processes and not as daemon sets within a bespoke AMI (based on bottlerocket)
+
+  - what is the difference between fargate and eks auto mode
+    - in fargate, eks does not manage core addons which are in the control plane in eks auto mode
+    - fargate does not run on ec2
+    - fargate cannot run daemonset 
+    - fargate cannot run on any ec2 instance type
+    - eks autmode will automatically right size the instances
+    - during upgrades, addons will be upgraded as well
+
+# EKS Logging
+
+  - EKS Control Place Logging
+    - k8s api
+    - audit
+    - authenticator
+    - controller manager
+    - scheduler
+  - EKS Worker Nodes Logging
+    - system logs from kubelet, kube-proxy or dockerd
+    - applicaton logs from application containers
+    
+  - Containerized applications write to 
+    - stderr and stdout
+  - System logs
+    - systemd
+  - Container redirects logs to
+    - /var/log/containers/*.log
+    
+  - Logging agents are pods deployed using the DaemonSet
+  - the logging agent will forward to the logging aggregator
+  - a popular logging agents are fluentd and fluentbit
+    - fluentd 
+      - is written in ruby 
+      - has about 100+ plugins
+      - is not an official eks addon
+      - can struggle with large log volume
+      - instead fluentd can send to a single kinesis data firehose/kafka which can forward to other logging backends
+    - fluentbit 
+      - is written in C, thus is more lightweight
+      - has about 20 plugins
+      - is an official eks addon
+      - fluentbit can send to a multiple logging backends directly
+  - popular logging backends include splunk, datadog and aws elastic search
+  - use kinesis data firehose to distribute to multiple backends
+  - EFK stack is Elastic Search, fluentd/bit, and kibana

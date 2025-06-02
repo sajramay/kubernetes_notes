@@ -1,6 +1,6 @@
 # Rocking Kubernetes with Amazon EKS, Fargate, And DevOps : Notes
 
-Hand Notes from Udemy Course: https://lseg.udemy.com/course/rocking-kubernetes-with-amazon-eks-fargate-and-devops
+Hand Notes from Course: Rocking Kubernetes With Amazon EKS
 
 ## Kubernetes Basics
 
@@ -487,15 +487,58 @@ and a HPA manifest
   - a popular logging agents are fluentd and fluentbit
     - fluentd 
       - is written in ruby 
-      - has about 100+ plugins
+      - has about 1100+ plugins
       - is not an official eks addon
       - can struggle with large log volume
       - instead fluentd can send to a single kinesis data firehose/kafka which can forward to other logging backends
+      - aws is going to deprecate support for fluentd
     - fluentbit 
       - is written in C, thus is more lightweight
-      - has about 20 plugins
+      - has about 30+ plugins
       - is an official eks addon
       - fluentbit can send to a multiple logging backends directly
   - popular logging backends include splunk, datadog and aws elastic search
   - use kinesis data firehose to distribute to multiple backends
   - EFK stack is Elastic Search, fluentd/bit, and kibana
+
+# EKS Advanced Concepts
+
+## Namespaces
+  - namespaces can be thought of as isolated slices of a k8s cluster
+  - you can allocate specific resources to each namespace
+  - separate namespaces can have resources, such as applications, with the same name
+  - you can specify the namespace in the Deployment file
+  ```yaml
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: springldap
+      namespace: "springldap-dev"
+      labels:
+        environment: test
+    spec:
+    <lines deleted>
+  ```
+  - run with `-n` or `--namespace` to select the namespace in a kubectl command
+    - `kubectl get all -n kube-system`
+  - create a namespace with `kubect create namespace <namespace>`
+
+## Ingress
+  - LoadBalancer's create via a Service will create an addressable url into the cluster
+  - it is not possible to use a single url with target paths to address applications running in nodes
+  - there are a number of ingress controllers available
+    - nginx
+    - haproxy
+    - traefix
+    - alb-ingress-controller (works with aws alb)
+      - this comes in two parts
+      - the first part is an ingress controller pod deployed in a node
+        - monitors ingress resources and creates aws resources for ingress
+        - one cluster can have more than one ingress controller
+          - the resource descriptor states which controller to use
+      - the second part is a ingress resource `kind: Ingress` which leads to the creation of an alb
+        - selects which ingress controller to use
+        - defines url path and corresponding backend service
+        - this deployment can specify path matching such as `/*` or `/a/*`
+        - this supports waf, health checks, http2 etc
+        - 

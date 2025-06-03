@@ -541,4 +541,21 @@ and a HPA manifest
         - defines url path and corresponding backend service
         - this deployment can specify path matching such as `/*` or `/a/*`
         - this supports waf, health checks, http2 etc
-        - 
+  - there are two primary modes or ways an Ingress Controller (and the external Load Balancer it provisions or manages) can route traffic to your Pods
+    - nodeport mode (Service.Type: NodePort)
+      - In this mode, the Ingress Controller's own Pods are typically exposed via a Kubernetes Service of type: NodePort. This means that a static port (within a specific range, usually 30000-32767) is opened on every node in your Kubernetes cluster
+      - The external Load Balancer (or the ingress controller itself, if it's acting as a standalone load balancer) then directs incoming traffic to the Node IP addresses of your worker nodes on this specific NodePort
+      - Kubernetes' internal networking (kube-proxy) on each node then takes over, forwarding traffic from the NodePort to the ClusterIP of your backend Service, which finally distributes it to the target Pods
+      - pros
+        - works on any k8s cluster and does not need cloud specific integrations
+    - target group / instance ip mode
+      - this is the more common and generally preferred mode in cloud environments like AWS EKS. 
+      - Instead of routing to NodePorts, the Ingress Controller (specifically, the AWS Load Balancer Controller for EKS) can configure the external Load Balancer (like an ALB) to directly target the IP addresses of your Pods
+      - When you create an Ingress resource and use the `alb.ingress.kubernetes.io/target-type: ip` annotation (which is the default in newer versions of the ALB controller), the ALB creates target groups that register the individual Pod IPs as targets.
+      - The Load Balancer directly sends traffic to these Pod IPs.
+      - pros
+        - direct routing
+        - better performance
+        - allows for more granular security group control
+        - uses standard `80/443` ports instead of high NodePorts
+      - cons

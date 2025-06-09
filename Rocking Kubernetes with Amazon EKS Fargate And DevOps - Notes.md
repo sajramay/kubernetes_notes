@@ -559,3 +559,49 @@ and a HPA manifest
         - allows for more granular security group control
         - uses standard `80/443` ports instead of high NodePorts
       - cons
+
+## Service Mesh
+  - a service mesh is a dedicated infrastructure layer that manages service-to-service communication in a microservices architecture
+  - it provides features like traffic management, security, and observability without requiring changes to the application code
+  - it is typically implemented using a sidecar proxy pattern, where a proxy is deployed alongside each service instance
+  - popular service meshes include Istio, Linkerd, and AWS App Mesh
+  - AWS App Mesh is the AWS managed service mesh solution that integrates with EKS and other AWS services
+    - it provides features like traffic routing, retries, failover, and observability for microservices running on EKS
+
+  - SideCars are containers that run alongside the main application container in a Pod
+    - they are used to provide additional functionality such as logging, monitoring, and security
+    - they can be used to implement a service mesh by intercepting and managing traffic between services
+    - the sidecar can selectively route traffic to different versions of a service, implement retries, and provide observability features like tracing and metrics
+      - it does this by selecting the pods that contains the version wanted based on labels 
+## CNI
+  - CRI stands for Container Runtime Interface
+    - it is a specification that defines how container runtimes should interact with Kubernetes
+    - it allows Kubernetes to manage container lifecycle operations like starting, stopping, and monitoring containers
+    - examples of container runtimes that implement CRI include Docker, containerd, and CRI-O
+
+  - CNI stands for Container Network Interface
+    - it is a specification for configuring network interfaces in Linux containers
+    - it allows Kubernetes to manage networking for Pods and provides a way to implement custom networking solutions
+    - the CNI plugin is responsible for creating and managing network interfaces for Pods, including assigning IP addresses and configuring routing
+
+  - AWS provides a CNI plugin for EKS that integrates with the AWS VPC networking model, allowing Pods to have IP addresses from the VPC subnet
+    - this allows Pods to communicate with other AWS services and resources using standard VPC networking features like security groups and route tables
+    - the AWS CNI plugin is installed by default in EKS clusters and can be configured using the `aws-node` DaemonSet
+    - it is open source and supported by AWS
+  - any CRI can call CNI plugins
+  - CNI plugins need to follow the CNI specification and support specific CNI commands like `ADD`, `DEL`, and `CHECK`
+    - these commands are used to create, delete, and check the status of network interfaces for Pods
+  
+  - Kubernetes networking requirements are that 
+    - each pod gets its own IP address
+    - each container in a pod shared the same network namespace
+    - each container in a pod has the same IP address as the pod
+    - containers in a pod thus communicate with each other using localhost
+    - all pods can communicate with each other without NAT
+    - AWS VPC CNI ensures that the Pod IP addresses are routable within the VPC
+
+  - if your pod is running out of IP addresses, you can increase the number of IP addresses available to the pod by increasing the number of ENIs attached to the node
+    - this is done by using larger instance types that support more ENIs
+    - you can also use secondary IP addresses on the ENIs to increase the number of IP addresses available to the pod
+      - these additional IPs are then from another subnet in the VPC
+    - this is done by configuring the CNI plugin to allocate more IP addresses from the subnet

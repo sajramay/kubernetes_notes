@@ -599,9 +599,56 @@ and a HPA manifest
     - containers in a pod thus communicate with each other using localhost
     - all pods can communicate with each other without NAT
     - AWS VPC CNI ensures that the Pod IP addresses are routable within the VPC
+    - each pod gets an IP address from the VPC subnet, allowing it to communicate with other Pods across namespaces and nodes
 
   - if your pod is running out of IP addresses, you can increase the number of IP addresses available to the pod by increasing the number of ENIs attached to the node
     - this is done by using larger instance types that support more ENIs
     - you can also use secondary IP addresses on the ENIs to increase the number of IP addresses available to the pod
       - these additional IPs are then from another subnet in the VPC
     - this is done by configuring the CNI plugin to allocate more IP addresses from the subnet
+
+## Pod Security Groups
+  - Pod Security Groups are a feature in EKS that allows you to define security groups for Pods
+  - they provide a way to control network traffic to and from Pods at the IP address level
+  - Pod Security Groups are applied to Pods based on labels, allowing you to define different security group rules for different sets of Pods
+  - they can be used to restrict access to specific resources, such as databases or other services, by allowing only certain Pods to communicate with them
+  - Pod Security Groups are managed using the `aws-node` DaemonSet and can be configured using annotations in the Pod spec
+
+## Kubernetes Network Policies
+  - Network Policies are a way to control traffic flow between Pods in a Kubernetes cluster
+  - they allow you to define rules that specify which Pods can communicate with each other and which Pods can access external resources
+  - Network Policies are implemented using labels and selectors, allowing you to target specific Pods or groups of Pods
+  - they can be used to restrict access to sensitive resources, such as databases or APIs, by allowing only certain Pods to communicate with them
+  - Network Policies are enforced by the CNI plugin and can be configured using YAML manifests
+  - they are not specific to EKS and can be used in any Kubernetes cluster that supports Network Policies
+  - to test network access you can use the `kubectl exec` command to run commands in a Pod
+  - EKS supports Network Policies using the AWS VPC CNI plugin, from EKS v1.25 onwards
+  ```bash
+    kubectl exec -it <pod-name> -- curl http://<service-name>.<namespace>.svc.cluster.local:<port>
+    kubectl -n namespace-x exec <pod-a-name> -- curl http://<pod-b-ip>
+  ```
+  - then create a network policy to restrict access to pods labelled `environment: test` in namespace `namespace-x` to only allow traffic from pods in namespace `namespacea`
+  ```yaml
+    apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: allow-specific-pod
+      namespace: namespace-x          # this policy applies to namespace-x
+    spec:
+      podSelector:
+        matchLabels:
+          environment: test           # and to pods with label environment=test in namespace-x
+      ingress:
+      - from:
+        - namespaceSelector:
+            matchLabels:
+              myspace: namespacea     # allow traffic from namespacea only
+  ```
+
+
+# URLs
+- [Kubernetes Documentation](https://kubernetes.io/docs/home/)
+- [CNCF Kubernetes](https://www.cncf.io/projects/kubernetes/)
+- [EKS Documentation](https://docs.aws.amazon.com/eks/latest/userguide/what-is-eks.html)
+- [EKS Terraform Blueprints](https://github.com/aws-ia/terraform-aws-eks-blueprints)
+- [eksctl Documentation](https://eksctl.io/)

@@ -645,6 +645,23 @@ and a HPA manifest
               myspace: namespacea     # allow traffic from namespacea only
   ```
 
+## Upgrading
+  - you can upgrade the control place without updating the worker nodes
+    - the worker nodes can be up to 3 versions behind the control plane
+  - when you upgrade the control plane the API server is also upgraded
+  - the upgraded API server will validate the YAML manifests against the new API version
+    - for example it may reject  `apiVersion: apps/v1beta2` for a Deployment if the new API version is `apps/v1`
+    - this could cause your deployments or scaling to fail
+  - you can use the `kubectl convert` command to convert your manifests to the new API version
+  - you can check whether there will be any issues using
+    - EKS Upgrade Insights
+    - open source tools like `pluto`, `kube-no-trouble`, or `kubent`
+  - aws eks will force upgrade after one year although you can pay for eks extended support
+  - add ons also ned to be upgraded
+    - aws will test new version compatibility with the new versions for addons it manages
+      - they are not upgraded automatically 
+    - third party add ons will not be tested by aws
+    - you can also use the `eksctl upgrade addon` command to upgrade specific add ons
 
 # URLs
 - [Kubernetes Documentation](https://kubernetes.io/docs/home/)

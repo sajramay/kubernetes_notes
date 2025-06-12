@@ -663,9 +663,125 @@ and a HPA manifest
     - third party add ons will not be tested by aws
     - you can also use the `eksctl upgrade addon` command to upgrade specific add ons
 
+## Security
+  - you can attach an IAM role to the EC2 instance running the nodes and pods, but this is not recommended
+  - by default the deployment manifest will have a kubernetes service account called default if you do not specify one
+    - `kubectl describe sa`
+    - `kubectl describe sa -A` for all the service accounts in the cluster
+    - `kubectl desccrive sa <sa-name> -n <namespace>` to get the IAM role in the annotations
+  - the service account needs an OIDC provider configured at the cluster level to get temporary credentials
+  - in later versions of EKS this has been replaced by EKS Pod Identity
+  - to create a service account use the following yaml
+  ```yaml
+  apiVersion: v1
+  kind: ServiceAccount
+  metadata:
+    labels:
+      app.kubernetes.io/name: alb-ingress-controller
+    name: alb-ingress-controller
+    namespace: mynamespace
+  ```
+
+  - ClusterRoles grant access to specific cluster resources
+    - create/list/delete nodes, pods, namespace etc
+    - `kubectl get clusterrole` for all cluster roles in the cluster
+    - `kubectl describe clusterrole admin` to get the policies attached to this cluster role
+  - to create a cluster role use the following yaml
+  ```yaml
+  apiVersion: rbac.authorization.k8s.io/v1
+  kind: ClusterRole
+  metadata:
+    name: alb-ingress-controller
+  rules:
+    - apiGroups:
+        - ""
+        - extensions
+      resources:
+        - configmaps
+        - events
+        - services
+        - ingresses
+      verbs:
+        - create
+        - get
+        - list
+        - update
+  ```
+
+  - to associate a ServiceAccount with a ClusterRole (not that ClusterRoles are reusable)
+  ```yaml
+  apiVersion: rbac.authorization.k8s.io/v1
+  kind: ClusterRoleBinding
+  metadata:
+    labels:
+      app.kubernetes.io/name: alb-ingress-controller
+    name: alb-ingress-controller
+  roleRef:
+    apiGroup: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: alb-ingress-controller
+  subjects:
+  - kind: ServiceAccount
+    # Teleport proxy ServiceAccount name
+    name: alb-ingress-controller
+    namespace: mynamespace
+  ```
+
+## Role vs ClusterRole
+  - both represent a set of permissions
+  - a Role sets permissions for a specific namespace
+  - a ClusterRole is not namespaced
+
+## Named Users
+  - you can map roles to named users as well
+  - this is a Role binding and so will specify a namespace
+  ```yaml
+  apiVersion: rbac.authorization.k8s.io/v1
+  kind: RoleBinding
+  metadata:
+    labels:
+      app.kubernetes.io/name: alb-ingress-controller
+    name: alb-ingress-controller
+    namespace: mynamespace
+  roleRef:
+    apiGroup: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: alb-ingress-controller
+  subjects:
+  - kind: User
+    # Teleport proxy ServiceAccount name
+    name: developer-tim
+    apiGroup: ""
+  ```
+  - and then map the user in the ConfigMap
+  ```yaml
+  apiVersion: v1
+  data:
+    mapRoles: |
+      - groups:
+        - system:bootstrappers
+        - system:nodes
+        rolearn: arn:aws:iam::111122223333:role/my-role
+        username: system:node:{{EC2PrivateDNSName}}
+      - groups:
+        - eks-console-dashboard-full-access-group
+        rolearn: arn:aws:iam::111122223333:role/my-console-viewer-role
+        username: my-console-viewer-role
+    mapUsers: |
+      - groups:
+        - system:masters
+        userarn: arn:aws:iam::111122223333:user/admin
+        username: admin
+      - groups:
+        - eks-console-dashboard-restricted-access-group
+        userarn: arn:aws:iam::444455556666:user/my-user
+        username: my-user  
+  ```
+
 # URLs
 - [Kubernetes Documentation](https://kubernetes.io/docs/home/)
 - [CNCF Kubernetes](https://www.cncf.io/projects/kubernetes/)
 - [EKS Documentation](https://docs.aws.amazon.com/eks/latest/userguide/what-is-eks.html)
 - [EKS Terraform Blueprints](https://github.com/aws-ia/terraform-aws-eks-blueprints)
 - [eksctl Documentation](https://eksctl.io/)
+- 

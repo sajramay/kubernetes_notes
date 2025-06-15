@@ -778,10 +778,121 @@ and a HPA manifest
         username: my-user  
   ```
 
+## KubeConfig
+  - the kubeconfig file is used by kubectl to connect to the cluster
+  - it contains information about the cluster, user, and context
+  - it can be found in `~/.kube/config` by default
+  - you can specify a different kubeconfig file using the `KUBECONFIG` environment variable or the `--kubeconfig` flag
+  - you can also use the `aws eks update-kubeconfig` command to update the kubeconfig file with the latest cluster information
+  ```bash
+    aws eks update-kubeconfig --name <cluster-name> --region <region>
+  ```
+  - the kubeconfig file contains the following sections
+    - clusters: contains information about the clusters, such as the API server endpoints and certificate authorities
+    - contexts: contains information about the context, which is a combination of a cluster and a user
+    - users: contains information about the user, such as the IAM role or user name
+    - current-context: specifies the current context to use when running kubectl commands
+  - without kubeconfig, you have to run the full command as per the below
+  ```bash
+    kubectl 
+        --server=https://<api-server-endpoint>
+        --client-key=<path-to-client-key>
+        --client-certificate=<path-to-client-certificate>
+        --certificate-authority=<ca-file> 
+        get pods
+  ```
+  - the current context is in the kubeconfig file
+  - you can view the current context using the `kubectl config current-context` command or just `kubectl config view` for the whole config
+  - it can be changed using the `kubectl config use-context` command
+
+## Controlling Access to Your EKS Cluster
+
+### Give Admin Access to Other IAM Users for Your Cluster
+  - the configmap/aws-auth looks like this yaml
+  ```yaml
+  apiVersion: v1
+  data:
+    mapRoles: |
+      - groups:
+        - system:bootstrappers
+        - system:nodes
+        rolearn: arn:aws:iam::111122223333:role/my-role
+        username: system:node:{{EC2PrivateDNSName}}
+      - groups:
+        - eks-console-dashboard-full-access-group
+        rolearn: arn:aws:iam::111122223333:role/my-console-viewer-role
+        username: my-console-viewer-role
+    mapUsers: |
+      []
+  ```
+  - to add a user to the configmap/aws-auth, you can use the following command `kubectl edit configmap/aws-auth -n kube-system` and update the users section
+  - the following adds a user to the *admin group*
+  ```bash
+    kubectl patch configmap aws-auth -n kube-system --type merge -p '{"data":{"mapUsers":"- groups:\n  - system:masters\n  userarn: arn:aws:iam::111122223333:user/admin\n  username: admin"}}'
+  ```
+  ```yaml
+  ...
+  mapUsers: |
+    - groups:
+      - system:masters
+      userarn: arn:aws:iam::111122223333:user/admin
+      username: admin
+  ...
+  ```
+### Give (k8s) Role Based Granular Access to Other IAM Users for Your Cluster
+  - let's say we want to give a user access to deploy to our cluster
+  - first we need to create a role that has the necessary permissions
+  ```yaml
+  apiVersion: rbac.authorization.k8s.io/v1
+  kind: Role
+  metadata:
+    name: deployment-role                                  # <-- (A)
+    namespace: frontend
+  rules:
+    - apiGroups:
+        - ""
+        - extensions
+        - apps
+      resources: 
+        - pods
+        - deployments
+        - replicasets
+      verbs:
+        - create
+        - get
+        - list
+        - update
+        - delete
+        - watch
+        - patch
+  ---
+  apiVersion: rbac.authorization.k8s.io/v1
+  kind: RoleBinding
+  metadata:
+    name: deployment-role-binding
+    namespace: frontend
+  roleRef:
+    apiGroup: rbac.authorization.k8s.io
+    kind: Role
+    name: deployment-role                                  # <-- (A)
+  subjects:
+    - kind: User
+      name: developerbob                                   # <-- (B)
+      apiGroup: ""
+  ```
+  - and in the configmap/aws-auth we need to add the user to the mapUsers section
+  ```yaml
+  ...
+  mapUsers: |
+    - groups:
+      - deployment-role                                    # <-- (A)
+      userarn: arn:aws:iam::111122223333:user/developerbob
+      username: developerbob                               # <-- (B)
+  ...
+  ```
 # URLs
 - [Kubernetes Documentation](https://kubernetes.io/docs/home/)
 - [CNCF Kubernetes](https://www.cncf.io/projects/kubernetes/)
 - [EKS Documentation](https://docs.aws.amazon.com/eks/latest/userguide/what-is-eks.html)
 - [EKS Terraform Blueprints](https://github.com/aws-ia/terraform-aws-eks-blueprints)
 - [eksctl Documentation](https://eksctl.io/)
-- 

@@ -452,7 +452,7 @@ and a HPA manifest
   - with EKS AutoMode, aws will manage the core addons in the control plane
   - aws also manages the worker nodes, calling them managed instances
     - you no longer need a separate node group for the addons
-      - `kubctl get nodes` will not show any nodes unless a service is deployed
+      - `kubectl get nodes` will not show any nodes unless a service is deployed
     - the addons run as processes and not as daemon sets within a bespoke AMI (based on bottlerocket)
 
   - what is the difference between fargate and eks auto mode
@@ -521,7 +521,7 @@ and a HPA manifest
   ```
   - run with `-n` or `--namespace` to select the namespace in a kubectl command
     - `kubectl get all -n kube-system`
-  - create a namespace with `kubect create namespace <namespace>`
+  - create a namespace with `kubectl create namespace <namespace>`
 
 ## Ingress
   - LoadBalancer's create via a Service will create an addressable url into the cluster
@@ -668,7 +668,7 @@ and a HPA manifest
   - by default the deployment manifest will have a kubernetes service account called default if you do not specify one
     - `kubectl describe sa`
     - `kubectl describe sa -A` for all the service accounts in the cluster
-    - `kubectl desccrive sa <sa-name> -n <namespace>` to get the IAM role in the annotations
+    - `kubectl describe sa <sa-name> -n <namespace>` to get the IAM role in the annotations
   - the service account needs an OIDC provider configured at the cluster level to get temporary credentials
   - in later versions of EKS this has been replaced by EKS Pod Identity
   - to create a service account use the following yaml
